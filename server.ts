@@ -2,15 +2,19 @@ import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { apiRouter } from './server/routes/api';
+import { firRouter } from './server/routes/fir';
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  // FIR PDFs/scans are sent as base64 JSON in this prototype.
+  // Keep the limit large enough for real scanned FIR documents.
+  app.use(express.json({ limit: '25mb' }));
 
   // Mount API endpoints
   app.use('/api', apiRouter);
+  app.use('/api/fir', firRouter);
 
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', service: 'DCJMN Sovereign Gateway', timestamp: new Date().toISOString() });
