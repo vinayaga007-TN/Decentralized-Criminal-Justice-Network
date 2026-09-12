@@ -1,0 +1,6 @@
+{
+  "name": "DCJMN — Decentralized Criminal Justice Network",
+  "description": "Permissioned blockchain justice network connecting Police, Forensics, Court, and Prison with institutional database separation, biometric verification, QBFT consensus, and tamper-evident auditability.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
