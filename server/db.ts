@@ -7,10 +7,12 @@ import {
   InmateCustodyRecord,
   InstitutionalIdentity,
   AccessRequest,
-  InstitutionType
+  InstitutionType,
+  FIRDocument
 } from '../src/types';
 import { encryptSensitive, sha256 } from './crypto';
 import { blockchain } from './blockchain';
+import { SAMPLE_FIR_DOCUMENTS } from './firSamples';
 
 /**
  * =========================================================================
@@ -21,6 +23,7 @@ export class PoliceDatabase {
   public cases: Map<string, CaseRecord> = new Map();
   public evidence: Map<string, EvidenceItem> = new Map();
   public chargesheets: Map<string, Chargesheet> = new Map();
+  public firStorage: Map<string, FIRDocument> = new Map();
 
   constructor() {
     this.seed();
@@ -28,8 +31,177 @@ export class PoliceDatabase {
 
   private seed() {
     const caseId = 'CASE-2026-00124';
+    const firDocId = 'FIR-DOC-2026-00124';
+    const firHash = '0xa83f940172bbcd1902488102f99ac1082bb491a0c812ea99182aa104921ff892';
+
+    // Seed original FIR Document with preservation and provenance
+    const seededFIR: FIRDocument = {
+      id: firDocId,
+      documentId: firDocId,
+      caseId,
+      fileName: 'FIR-2026-00124-CYBER-EXFILTRATION.pdf',
+      fileSize: 348210,
+      fileSizeFormatted: '340 KB',
+      mimeType: 'application/pdf',
+      documentType: 'PDF',
+      fileDataUrl: SAMPLE_FIR_DOCUMENTS[0]?.svgDataUrl || 'data:application/pdf;base64,JVBERi0xLjQ...',
+      totalPages: 3,
+      sha256Hash: firHash,
+      status: 'VERIFIED',
+      integrityStatus: 'VERIFIED',
+      blockchainStatus: 'RECORDED',
+      uploadedAt: '2026-02-14T04:12:08Z',
+      verifiedAt: '2026-02-14T04:15:30Z',
+      uploaderOfficerId: 'POL-IND-004281',
+      uploaderOfficerName: 'Inspector Kumar',
+      institution: 'POLICE',
+      digitalSignature: '0xEd25519_POLICE_OFFICER_KUMAR_SIG_04812',
+      txHash: '0x82ab719ef10082491a99bcde1920f5a0194821a8c0e11894b9812cc981af8921',
+      blockNumber: 48192842,
+      rawOcrText: `FIRST INFORMATION REPORT (Under Sec. 154 Cr.P.C.)
+1. District: Federal Cyber District 04 | Police Station: Metro Central Division (#POL-MC-09) | Year: 2026 | FIR No: 0124
+2. Acts & Sections: Sec. 420 (Fraud), Sec. 467 (Forgery), Sec. 471 (Counterfeit Security), Sec. 120-B (Conspiracy)
+3. Occurrence of Offence: Day: Friday | Date: 13-02-2026 | Time: 23:45 hrs
+4. Type of Information: Written / Scanned Digital Complaint
+5. Place of Occurrence: Sub-station 14, Technopark Financial Expressway
+6. Complainant / Informant: Federal Auditor General Unit 7, Contact: +91 98401 23456
+7. Details of Known / Suspected / Unknown Accused with Full Particulars: Ravi Kiran Sharma (alias The Architect), Age 34, Male.
+8. Brief Facts: Sub-station 14 intercept team executed arrest following anomalous encrypted data transmission flags flagged by District Cyber Node. Suspect seized with hardware security authenticators and duplicate treasury vouchers totaling $4.2M in federal securities.
+9. Investigating Officer: Inspector Kumar (#POL-IND-004281)`,
+      extractedFields: {
+        firNumber: 'FIR-2026/0124',
+        policeStation: 'Metro Central Division (#POL-MC-09)',
+        district: 'Federal Cyber District 04',
+        date: '2026-02-14',
+        time: '04:12',
+        dateOfOccurrence: '2026-02-13',
+        timeOfOccurrence: '23:45',
+        placeOfOccurrence: 'Sub-station 14, Technopark Financial Expressway',
+        complainantName: 'Federal Auditor General Unit 7',
+        complainantContact: '+91 98401 23456 / aud-u7@cyber.gov',
+        accusedName: 'Ravi Kiran Sharma',
+        accusedAge: 34,
+        accusedDetails: 'Alias The Architect, Male, Seized with duplicate treasury credentials',
+        victimInformation: 'Central Treasury Clearinghouse & State Financial Reserve',
+        offences: ['Sec. 420 (Fraud)', 'Sec. 467 (Forgery)', 'Sec. 471 (Counterfeit Security)', 'Sec. 120-B (Conspiracy)'],
+        briefFacts: 'Sub-station 14 intercept team executed arrest following anomalous encrypted data transmission flags flagged by District Cyber Node. Suspect seized with hardware security authenticators and duplicate treasury vouchers totaling $4.2M in federal securities.',
+        witnesses: ['Sgt. Reynolds (#POL-4182)', 'Inspector Kumar (#POL-IND-004281)', 'Duty Officer N. Rao'],
+        investigatingOfficer: 'Inspector Kumar (#POL-IND-004281)',
+        documentDate: '2026-02-14',
+        documentReferenceNumber: 'FIR/CRIME/2026/0124-MC',
+        fieldConfidences: {
+          firNumber: 'HIGH',
+          policeStation: 'HIGH',
+          district: 'HIGH',
+          date: 'HIGH',
+          time: 'HIGH',
+          complainantName: 'HIGH',
+          accusedName: 'HIGH',
+          offences: 'HIGH',
+          placeOfOccurrence: 'HIGH',
+          briefFacts: 'HIGH'
+        },
+        lowConfidenceFields: []
+      },
+      aiSummary: {
+        summary: 'Original First Information Report filed under IPC 420, 467, 471, 120-B for unauthorized exfiltration of treasury vouchers ($4.2M) at Technopark Sub-station 14.',
+        mainAllegations: [
+          'Interception of high-value treasury data packets',
+          'Possession of cloned hardware authenticators',
+          'Fabrication of $4.2M counterfeit federal securities'
+        ],
+        personsMentioned: [
+          'Ravi Kiran Sharma (Accused)',
+          'Inspector Kumar (Investigating Officer)',
+          'Sgt. Reynolds (Arresting Officer)',
+          'Duty Officer N. Rao (Witness)'
+        ],
+        offencesMentioned: [
+          'Sec. 420 (Fraud)',
+          'Sec. 467 (Forgery)',
+          'Sec. 471 (Counterfeit Security)',
+          'Sec. 120-B (Criminal Conspiracy)'
+        ],
+        evidenceReferenced: [
+          'Samsung 2TB T7 Shield SSD (EVD-2026-9901)',
+          'Fiber micro-traces from ventilation shaft (EVD-2026-9902)',
+          'Duplicate treasury payment vouchers'
+        ],
+        itemsRequiringVerification: [
+          'Confirmation of exact timestamp of initial server egress packet'
+        ],
+        timeline: [
+          { time: '2026-02-13 23:45', event: 'Initial anomalous encrypted transmission flagged' },
+          { time: '2026-02-14 02:10', event: 'Suspect intercepted at Sub-station 14 perimeter' },
+          { time: '2026-02-14 04:12', event: 'Digital FIR registered at Metro Central Division' }
+        ]
+      },
+      provenanceHistory: [
+        {
+          timestamp: '2026-02-14T04:12:08Z',
+          institution: 'POLICE',
+          officerId: 'POL-IND-004281',
+          officerName: 'Inspector Kumar',
+          action: 'FIR Document Uploaded & Preserved',
+          details: 'Original PDF file ingested into secure police document vault'
+        },
+        {
+          timestamp: '2026-02-14T04:14:15Z',
+          institution: 'POLICE',
+          officerId: 'POL-IND-004281',
+          officerName: 'Inspector Kumar',
+          action: 'OCR & Intelligence Field Extraction Completed',
+          details: 'AI parsed 12 structured fields with 0 validation flags'
+        },
+        {
+          timestamp: '2026-02-14T04:15:30Z',
+          institution: 'POLICE',
+          officerId: 'POL-IND-004281',
+          officerName: 'Inspector Kumar',
+          action: 'Officer Verified & Confirmed FIR Record',
+          details: 'Investigating officer verified all fields against original PDF'
+        },
+        {
+          timestamp: '2026-02-14T04:16:02Z',
+          institution: 'POLICE',
+          officerId: 'POL-IND-004281',
+          officerName: 'Inspector Kumar',
+          action: 'Blockchain Recorded on QBFT Block #48192842',
+          txHash: '0x82ab719ef10082491a99bcde1920f5a0194821a8c0e11894b9812cc981af8921',
+          details: 'SHA-256 cryptographic hash anchored to immutable CaseRegistry contract'
+        },
+        {
+          timestamp: '2026-02-14T11:20:14Z',
+          institution: 'FORENSICS',
+          officerId: 'FOR-IND-003914',
+          officerName: 'Ryan Thorne (CFSL)',
+          action: 'Forensic Lab Read Access Granted',
+          details: 'FIR verified by Central Forensic Science Lab for physical exhibit alignment'
+        },
+        {
+          timestamp: '2026-02-15T09:30:00Z',
+          institution: 'COURT',
+          officerId: 'CRT-IND-001872',
+          officerName: 'Presiding Judge',
+          action: 'Judicial Bench Integrity Attestation',
+          details: 'Cryptographic hash verified before trial hearing'
+        }
+      ]
+    };
+
+    this.firStorage.set(firDocId, seededFIR);
+    blockchain.registerFIRDocumentOnChain(
+      firDocId,
+      caseId,
+      'POL-IND-004281',
+      'POLICE',
+      firHash,
+      '0xEd25519_POLICE_OFFICER_KUMAR_SIG_04812'
+    );
+
     const rawCase = {
       caseId,
+      firDocumentId: firDocId,
       title: 'State of Federal District 04 vs. Ravi & Associates',
       creatingInstitution: 'POLICE' as const,
       officerId: 'POL-IND-004281',

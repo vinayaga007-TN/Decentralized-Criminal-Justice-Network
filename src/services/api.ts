@@ -10,7 +10,10 @@ import {
   BlockchainTx,
   AuditRecord,
   VerificationResult,
-  InstitutionType
+  InstitutionType,
+  FIRDocument,
+  FIRExtractedFields,
+  FIRAISummary
 } from '../types';
 
 export const api = {
@@ -53,6 +56,8 @@ export const api = {
     orders: CourtOrder[];
     inmates: InmateCustodyRecord[];
     integrity: VerificationResult;
+    firDocument?: FIRDocument;
+    firIntegrity?: VerificationResult | null;
     error?: string;
   }> {
     const res = await fetch(`/api/cases/${caseId}`);
@@ -244,6 +249,137 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query, caseId })
+    });
+    return res.json();
+  },
+
+  // FIR Document Workflows
+  async getFIRSamples(): Promise<{
+    success: boolean;
+    samples: Array<{
+      id: string;
+      name: string;
+      category: string;
+      documentType: any;
+      fileName: string;
+      mimeType: string;
+      fileSizeFormatted: string;
+      previewUrl: string;
+      extractedFields: FIRExtractedFields;
+      aiSummary: FIRAISummary;
+    }>;
+  }> {
+    const res = await fetch('/api/fir/samples');
+    return res.json();
+  },
+
+  async uploadFIRDocument(payload: {
+    fileDataUrl?: string;
+    fileName?: string;
+    fileSize?: number;
+    mimeType?: string;
+    sampleId?: string;
+    officerId?: string;
+    officerName?: string;
+  }): Promise<{
+    success: boolean;
+    document: FIRDocument;
+    sha256Hash: string;
+    extractedFields: FIRExtractedFields;
+    aiSummary: FIRAISummary;
+    rawOcrText: string;
+    error?: string;
+  }> {
+    const res = await fetch('/api/fir/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    return res.json();
+  },
+
+  async confirmFIRDocument(payload: {
+    documentId: string;
+    confirmedFields: FIRExtractedFields;
+    customTitle?: string;
+    officerId?: string;
+    officerName?: string;
+  }): Promise<{
+    success: boolean;
+    case: CaseRecord;
+    firDocument: FIRDocument;
+    tx: BlockchainTx;
+    block: BlockchainBlock;
+    error?: string;
+  }> {
+    const res = await fetch('/api/fir/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    return res.json();
+  },
+
+  async createManualFIR(payload: {
+    title: string;
+    incidentDetails: string;
+    complainant?: string;
+    accusedName?: string;
+    accusedAge?: number;
+    charges?: string | string[];
+    officerId?: string;
+    officerName?: string;
+  }): Promise<{
+    success: boolean;
+    case: CaseRecord;
+    firDocument: FIRDocument;
+    tx: BlockchainTx;
+    block: BlockchainBlock;
+    error?: string;
+  }> {
+    const res = await fetch('/api/fir/manual', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    return res.json();
+  },
+
+  async getFIRDocument(documentId: string): Promise<{
+    success: boolean;
+    firDocument?: FIRDocument;
+    error?: string;
+  }> {
+    const res = await fetch(`/api/fir/${documentId}`);
+    return res.json();
+  },
+
+  async verifyFIRDocument(documentId: string): Promise<{
+    success: boolean;
+    verification: VerificationResult;
+    documentId: string;
+    calculatedHash: string;
+    storedHash: string;
+    error?: string;
+  }> {
+    const res = await fetch(`/api/fir/${documentId}/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    return res.json();
+  },
+
+  async queryFIRAIChat(documentId: string, message: string, officerName?: string): Promise<{
+    success: boolean;
+    answer: string;
+    source: string;
+    documentId: string;
+    error?: string;
+  }> {
+    const res = await fetch(`/api/fir/${documentId}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, officerName })
     });
     return res.json();
   }

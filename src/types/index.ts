@@ -52,6 +52,105 @@ export interface CaseRecord {
   blockNumber: number;
   tampered?: boolean;
   originalHash?: string;
+  firDocumentId?: string;
+  firDocument?: FIRDocument;
+}
+
+export type FIRProcessingStatus =
+  | 'UPLOADED'
+  | 'PROCESSING'
+  | 'OCR_COMPLETED'
+  | 'REVIEW_REQUIRED'
+  | 'VERIFIED'
+  | 'BLOCKCHAIN_RECORDED'
+  | 'ERROR';
+
+export type FIRDocumentType =
+  | 'PDF'
+  | 'IMAGE_HANDWRITTEN'
+  | 'IMAGE_SCANNED'
+  | 'DIGITAL_TEXT';
+
+export interface FIRExtractedFields {
+  firNumber: string;
+  policeStation: string;
+  district: string;
+  date: string;
+  time: string;
+  dateOfOccurrence: string;
+  timeOfOccurrence: string;
+  placeOfOccurrence: string;
+  complainantName: string;
+  complainantContact: string;
+  accusedName: string;
+  accusedAge: number;
+  accusedDetails: string;
+  victimInformation: string;
+  offences: string[];
+  briefFacts: string;
+  witnesses: string[];
+  investigatingOfficer: string;
+  documentDate: string;
+  documentReferenceNumber: string;
+  fieldConfidences?: Record<string, 'HIGH' | 'LOW' | 'NOT_DETECTED'>;
+  lowConfidenceFields?: string[];
+}
+
+export interface FIRAISummary {
+  summary: string;
+  mainAllegations: string[];
+  personsMentioned: string[];
+  offencesMentioned: string[];
+  evidenceReferenced: string[];
+  itemsRequiringVerification: string[];
+  timeline: { time: string; event: string }[];
+}
+
+export interface FIRProvenanceItem {
+  timestamp: string;
+  institution: InstitutionType;
+  officerId: string;
+  officerName: string;
+  action: string;
+  txHash?: string;
+  details?: string;
+}
+
+export interface FIRDocument {
+  id: string; // e.g. FIR-DOC-2026-00481
+  documentId: string; // alias for id
+  caseId: string; // e.g. CASE-2026-000127
+  fileName: string;
+  fileSize: number; // in bytes
+  fileSizeFormatted: string;
+  mimeType: string;
+  documentType: FIRDocumentType;
+  fileDataUrl: string; // Original document content (base64 or URL)
+  totalPages?: number;
+  sha256Hash: string; // Cryptographic hash of original file
+  status: FIRProcessingStatus;
+  integrityStatus: 'VERIFIED' | 'COMPROMISED' | 'PENDING';
+  blockchainStatus: 'RECORDED' | 'PENDING' | 'PENDING_CONFIRMATION' | 'FAILED';
+  uploadedAt: string;
+  verifiedAt?: string;
+  uploaderOfficerId: string;
+  uploaderOfficerName: string;
+  uploadedByOfficerId?: string;
+  uploadedByOfficerName?: string;
+  verifiedByOfficerId?: string;
+  verifiedByOfficerName?: string;
+  institution: InstitutionType;
+  digitalSignature?: string;
+  txHash?: string;
+  blockNumber?: number;
+  blockchainTxHash?: string;
+  blockchainBlockNumber?: number;
+  rawOcrText?: string;
+  extractedFields: FIRExtractedFields;
+  aiSummary: FIRAISummary;
+  provenanceHistory: FIRProvenanceItem[];
+  tampered?: boolean;
+  originalHash?: string;
 }
 
 export interface EvidenceItem {
@@ -178,7 +277,14 @@ export type AuditActionType =
   | 'COURT_ORDER_ISSUED'
   | 'PRISON_TRANSFER_CREATED'
   | 'RECORD_VERIFIED'
-  | 'RECORD_INTEGRITY_FAILED';
+  | 'RECORD_INTEGRITY_FAILED'
+  | 'FIR_UPLOADED'
+  | 'FIR_VIEWED'
+  | 'FIR_DOWNLOADED'
+  | 'FIR_ANALYZED'
+  | 'FIR_VERIFIED'
+  | 'FIR_CORRECTED'
+  | 'FIR_SHARED';
 
 export interface AuditRecord {
   id: string;
@@ -224,7 +330,7 @@ export interface BlockchainTx {
 
 export interface VerificationResult {
   verified: boolean;
-  targetType: 'CASE' | 'EVIDENCE' | 'FORENSIC_REPORT' | 'CHARGESHEET' | 'COURT_ORDER';
+  targetType: 'CASE' | 'EVIDENCE' | 'FORENSIC_REPORT' | 'CHARGESHEET' | 'COURT_ORDER' | 'FIR_DOCUMENT';
   targetId: string;
   currentHash: string;
   blockchainHash: string;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Calendar,
@@ -18,7 +18,14 @@ import {
   CheckCircle2,
   MapPin,
   Tag,
-  Share2
+  Share2,
+  Sparkles,
+  Eye,
+  FileCheck,
+  ExternalLink,
+  Copy,
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 import {
   CaseRecord,
@@ -27,10 +34,15 @@ import {
   Chargesheet,
   CourtOrder,
   InmateCustodyRecord,
-  InstitutionType
+  InstitutionType,
+  FIRDocument,
+  VerificationResult
 } from '../../types';
 import { VerificationPill } from '../common/VerificationPill';
 import { InstitutionalBadge } from '../common/InstitutionalBadge';
+import { FIRDocumentViewerModal } from '../fir/FIRDocumentViewerModal';
+import { FIRAIChatModal } from '../fir/FIRAIChatModal';
+import { api } from '../../services/api';
 
 export type CaseTabType =
   | 'OVERVIEW'
@@ -49,6 +61,8 @@ interface CaseDetailViewProps {
   orders: CourtOrder[];
   inmates: InmateCustodyRecord[];
   userInstitution: InstitutionType;
+  firDocument?: FIRDocument;
+  firIntegrity?: VerificationResult | null;
   onBack: () => void;
   onSelectEvidence: (evidence: EvidenceItem) => void;
   onOpenVerificationDrawer: () => void;
@@ -68,6 +82,8 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
   orders,
   inmates,
   userInstitution,
+  firDocument: initialFirDoc,
+  firIntegrity: initialFirIntegrity,
   onBack,
   onSelectEvidence,
   onOpenVerificationDrawer,
@@ -79,6 +95,50 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
   onExecuteBailRelease
 }) => {
   const [activeTab, setActiveTab] = useState<CaseTabType>('OVERVIEW');
+  const [localFirDoc, setLocalFirDoc] = useState<FIRDocument | null>(initialFirDoc || null);
+  const [localFirIntegrity, setLocalFirIntegrity] = useState<VerificationResult | null>(initialFirIntegrity || null);
+  const [showFIRModal, setShowFIRModal] = useState(false);
+  const [showAIChatModal, setShowAIChatModal] = useState(false);
+  const [verifyingDoc, setVerifyingDoc] = useState(false);
+  const [hashCopied, setHashCopied] = useState(false);
+
+  // Sync / fetch FIR document if caseRecord changes or localFirDoc is missing
+  useEffect(() => {
+    if (initialFirDoc) {
+      setLocalFirDoc(initialFirDoc);
+      return;
+    }
+    const docId = caseRecord.firDocumentId || `FIR-DOC-${caseRecord.caseId}`;
+    api.getFIRDocument(docId)
+      .then((res) => {
+        if (res.success && res.firDocument) {
+          setLocalFirDoc(res.firDocument);
+        }
+      })
+      .catch(() => {});
+  }, [caseRecord.caseId, caseRecord.firDocumentId, initialFirDoc]);
+
+  const handleVerifyFIRIntegrity = async () => {
+    if (!localFirDoc) return;
+    setVerifyingDoc(true);
+    try {
+      const res = await api.verifyFIRDocument(localFirDoc.id);
+      if (res.success && res.verification) {
+        setLocalFirIntegrity(res.verification);
+      }
+    } catch (e) {
+      console.warn('FIR verification error', e);
+    } finally {
+      setVerifyingDoc(false);
+    }
+  };
+
+  const copyFIRHash = () => {
+    if (!localFirDoc) return;
+    navigator.clipboard.writeText(localFirDoc.sha256Hash);
+    setHashCopied(true);
+    setTimeout(() => setHashCopied(false), 2000);
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in max-w-6xl mx-auto pb-12">
@@ -117,7 +177,19 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
           </div>
 
           {/* Quick Context-Aware Action Button */}
-          <div className="flex items-center gap-2 self-start">
+          <div className="flex items-center gap-2 self-start flex-wrap">
+            {localFirDoc && (
+              <button
+                type="button"
+                onClick={() => setShowFIRModal(true)}
+                className="px-3 py-1.5 bg-sky-950/40 hover:bg-sky-900/50 text-sky-300 border border-sky-500/40 text-xs font-mono uppercase tracking-wider rounded font-medium transition-colors flex items-center gap-1.5"
+                title="View original preserved FIR document"
+              >
+                <FileText className="w-3.5 h-3.5 text-sky-400" />
+                <span>Original FIR</span>
+              </button>
+            )}
+
             {userInstitution === 'POLICE' && (
               <>
                 <button
@@ -224,6 +296,137 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
         {activeTab === 'OVERVIEW' && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2 space-y-6">
+              {/* Preserved Original FIR Document Card */}
+              {localFirDoc && (
+                <div className="bg-[#0B0F1B] border border-sky-500/30 rounded-lg p-5 space-y-4 relative overflow-hidden">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded bg-sky-500/10 border border-sky-500/30 text-sky-400">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-mono uppercase tracking-wider text-slate-100 font-bold">
+                            Original Preserved FIR Document
+                          </h4>
+                          <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold">
+                            IMMUTABLE ORIGINAL
+                          </span>
+                        </div>
+                        <p className="text-[11px] font-mono text-slate-400">
+                          FIR #{localFirDoc.extractedFields.firNumber || localFirDoc.id} • Registered by {localFirDoc.uploadedByOfficerName}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowAIChatModal(true)}
+                        className="px-2.5 py-1.5 rounded bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/40 text-sky-300 text-xs font-mono font-medium flex items-center gap-1.5 transition-colors"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Ask AI</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowFIRModal(true)}
+                        className="px-3 py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white text-xs font-mono font-bold flex items-center gap-1.5 shadow-md shadow-sky-950/40 transition-colors"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Inspect Original</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Document preview & integrity summary */}
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
+                    {/* Thumbnail preview */}
+                    <div
+                      onClick={() => setShowFIRModal(true)}
+                      className="sm:col-span-4 h-36 rounded bg-[#05070E] border border-slate-800 p-1 flex items-center justify-center cursor-pointer group hover:border-sky-500/50 transition-colors relative overflow-hidden"
+                    >
+                      {localFirDoc.fileDataUrl.startsWith('data:image') || localFirDoc.fileDataUrl.startsWith('data:text') ? (
+                        <img
+                          src={localFirDoc.fileDataUrl}
+                          alt="FIR Document thumbnail"
+                          className="w-full h-full object-contain rounded opacity-85 group-hover:opacity-100 transition-opacity"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center text-slate-500 group-hover:text-sky-400">
+                          <FileText className="w-8 h-8 mb-1" />
+                          <span className="text-[10px] font-mono">PDF Document</span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <span className="text-[11px] font-mono font-bold text-white bg-sky-600/90 px-2 py-1 rounded">
+                          Click to View Original
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Metadata & Hash info */}
+                    <div className="sm:col-span-8 space-y-2.5 font-mono text-xs">
+                      <div className="grid grid-cols-2 gap-2 text-[11px]">
+                        <div>
+                          <span className="text-slate-500 uppercase text-[10px] block">Document File</span>
+                          <span className="text-slate-200 font-medium truncate block">{localFirDoc.fileName}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 uppercase text-[10px] block">File Size &amp; Type</span>
+                          <span className="text-slate-200">{localFirDoc.fileSizeFormatted} • {localFirDoc.documentType}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="text-slate-500 uppercase">SHA-256 Anchored Leaf Digest</span>
+                          {localFirIntegrity ? (
+                            <span className="text-emerald-400 flex items-center gap-1 font-bold">
+                              <ShieldCheck className="w-3 h-3" />
+                              VERIFIED ON CHAIN
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={verifyingDoc}
+                              onClick={handleVerifyFIRIntegrity}
+                              className="text-sky-400 hover:underline"
+                            >
+                              {verifyingDoc ? 'Verifying...' : 'Verify with Chain'}
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between bg-black/50 rounded p-1.5 border border-slate-800 mt-1">
+                          <code className="text-[10px] text-emerald-400 truncate max-w-[280px]">
+                            {localFirDoc.sha256Hash}
+                          </code>
+                          <button
+                            type="button"
+                            onClick={copyFIRHash}
+                            className="text-slate-400 hover:text-white ml-2 shrink-0"
+                            title="Copy SHA-256"
+                          >
+                            {hashCopied ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-400">
+                        <span className="text-slate-500">Extracted Offences:</span>
+                        <span className="text-sky-300 font-medium">
+                          {localFirDoc.extractedFields.offences.slice(0, 2).join(', ') || 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Incident Details */}
               <div className="bg-[#0B0F1B] border border-slate-800/80 rounded p-5 space-y-3">
                 <h3 className="text-xs font-mono uppercase tracking-wider text-slate-400 font-semibold">
@@ -826,6 +1029,25 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
           </div>
         )}
       </div>
+
+      {/* FIR Preserved Document Viewer Modal */}
+      {showFIRModal && localFirDoc && (
+        <FIRDocumentViewerModal
+          document={localFirDoc}
+          initialIntegrity={localFirIntegrity}
+          currentOfficerName={caseRecord.officerName}
+          onClose={() => setShowFIRModal(false)}
+        />
+      )}
+
+      {/* FIR AI Chat Modal */}
+      {showAIChatModal && localFirDoc && (
+        <FIRAIChatModal
+          document={localFirDoc}
+          officerName={caseRecord.officerName}
+          onClose={() => setShowAIChatModal(false)}
+        />
+      )}
     </div>
   );
 };

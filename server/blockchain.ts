@@ -94,6 +94,18 @@ export interface CustodyContractRecord {
   blockNumber: number;
 }
 
+export interface FIRDocumentContractRecord {
+  documentId: string;
+  caseId: string;
+  documentHash: string;
+  uploaderId: string;
+  institution: InstitutionType;
+  timestamp: string;
+  txHash: string;
+  blockNumber: number;
+  status: 'RECORDED' | 'VERIFIED';
+}
+
 class DCJMNBlockchain {
   private blocks: BlockchainBlock[] = [];
   private txCounter: number = 2901;
@@ -107,6 +119,7 @@ class DCJMNBlockchain {
   public chargesheets: Map<string, ChargesheetContractRecord> = new Map();
   public orders: Map<string, OrderContractRecord> = new Map();
   public custodies: Map<string, CustodyContractRecord> = new Map();
+  public firDocuments: Map<string, FIRDocumentContractRecord> = new Map();
   public auditLog: AuditRecord[] = [];
 
   constructor() {
@@ -555,6 +568,47 @@ class DCJMNBlockchain {
     return { tx, block };
   }
 
+  public registerFIRDocumentOnChain(
+    documentId: string,
+    caseId: string,
+    uploaderId: string,
+    institution: InstitutionType,
+    documentHash: string,
+    signature: string
+  ): { tx: BlockchainTx; block: BlockchainBlock } {
+    const { tx, block } = this.commitTransaction(
+      institution,
+      'CaseRegistry',
+      'FIR_DOCUMENT_RECORDED',
+      documentHash,
+      signature
+    );
+
+    this.firDocuments.set(documentId, {
+      documentId,
+      caseId,
+      documentHash,
+      uploaderId,
+      institution,
+      timestamp: tx.timestamp,
+      txHash: tx.txHash,
+      blockNumber: tx.blockNumber,
+      status: 'RECORDED'
+    });
+
+    this.recordAudit(
+      institution,
+      'FIR_VERIFIED',
+      caseId,
+      `FIR Document ${documentId} registered by ${institution} (${uploaderId}). SHA-256 hash ${documentHash.substring(0, 16)}... anchored to QBFT block #${block.blockNumber}`,
+      documentHash,
+      tx.txHash,
+      block.blockNumber
+    );
+
+    return { tx, block };
+  }
+
   public recordAudit(
     institution: InstitutionType,
     action: AuditActionType,
@@ -607,7 +661,7 @@ class DCJMNBlockchain {
    * Cryptographic integrity verification against immutable blockchain hash
    */
   public verifyIntegrity(
-    type: 'CASE' | 'EVIDENCE' | 'FORENSIC_REPORT' | 'CHARGESHEET' | 'COURT_ORDER',
+    type: 'CASE' | 'EVIDENCE' | 'FORENSIC_REPORT' | 'CHARGESHEET' | 'COURT_ORDER' | 'FIR_DOCUMENT',
     id: string,
     calculatedHash: string
   ): VerificationResult {
@@ -625,6 +679,15 @@ class DCJMNBlockchain {
         txHash = c.txHash;
         timestamp = c.timestamp;
         signer = c.creatingInstitution + '_NODE';
+      }
+    } else if (type === 'FIR_DOCUMENT') {
+      const doc = this.firDocuments.get(id);
+      if (doc) {
+        expectedHash = doc.documentHash;
+        blockNumber = doc.blockNumber;
+        txHash = doc.txHash;
+        timestamp = doc.timestamp;
+        signer = doc.institution + '_NODE (' + doc.uploaderId + ')';
       }
     } else if (type === 'EVIDENCE') {
       const e = this.evidence.get(id);

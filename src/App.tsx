@@ -34,7 +34,8 @@ import {
   InmateCustodyRecord,
   InstitutionalIdentity,
   InstitutionType,
-  VerificationResult
+  VerificationResult,
+  FIRDocument
 } from './types';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 
@@ -121,6 +122,8 @@ export default function App() {
   const [chargesheet, setChargesheet] = useState<Chargesheet | undefined>(undefined);
   const [orders, setOrders] = useState<CourtOrder[]>([]);
   const [inmates, setInmates] = useState<InmateCustodyRecord[]>([]);
+  const [firDocument, setFirDocument] = useState<FIRDocument | null>(null);
+  const [firIntegrity, setFirIntegrity] = useState<VerificationResult | null>(null);
   const [integrity, setIntegrity] = useState<VerificationResult>({
     verified: true,
     calculatedHash: '0x4a71bf003c2bb0194821cc90184b291a00812f8a0029b3c4d5e6f7a8b9cee841',
@@ -218,6 +221,8 @@ export default function App() {
         setChargesheet(res.chargesheets && res.chargesheets[0]);
         setOrders(res.orders || []);
         setInmates(res.inmates || []);
+        setFirDocument(res.firDocument || null);
+        setFirIntegrity(res.firIntegrity || null);
         if (res.integrity) setIntegrity(res.integrity);
 
         if (res.case?.tampered || res.evidence?.some((e) => e.tampered) || (res.chargesheets && res.chargesheets[0]?.tampered)) {
@@ -488,6 +493,8 @@ export default function App() {
               orders={orders}
               inmates={inmates}
               userInstitution={effectiveInstitution}
+              firDocument={firDocument || undefined}
+              firIntegrity={firIntegrity}
               onBack={() => setCurrentView('CASES')}
               onSelectEvidence={(ev) => setSelectedEvidenceForDrawer(ev)}
               onOpenVerificationDrawer={() => setIsVerificationDrawerOpen(true)}
@@ -608,6 +615,8 @@ export default function App() {
         isOpen={isNewFIROpen}
         onClose={() => setIsNewFIROpen(false)}
         onCreated={handleCaseCreated}
+        officerName={authenticatedUser.name}
+        officerId={authenticatedUser.badgeNumber || authenticatedUser.id}
       />
 
       {caseRecord && (
